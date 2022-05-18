@@ -57,35 +57,20 @@ function Set-MFAMethodDefault {
         $MFAType,
 
         [Parameter(
-            Position=2)]
+            Position=2,
+            Mandatory=$true)]
         [ValidateNotNull()]
         [System.Management.Automation.PSCredential]
         $Credential
     )
 
-    # This is just an easy way of only using Connect-MsolService when it's needed.
-    try {
-        $msolUserObject = Get-MsolUser -UserPrincipalName $UserPrincipalName
-    } catch {
-        # If Credential param wasn't provided and it's needed, get it.
-        if ($null -eq $Credential) {
-            $Credential = Get-Credential
-        }
-        Connect-MsolService -Credential $Credential
-        $msolUserObject = Get-MsolUser -UserPrincipalName $UserPrincipalName
-    }
+    Connect-MsolService -Credential $Credential
+    $msolUserObject = Get-MsolUser -UserPrincipalName $UserPrincipalName
 
     $MFATypeIsSetupOnAccount = $msolUserObject.StrongAuthenticationMethods.MethodType.Contains($MFAType)
 
     if ($MFATypeIsSetupOnAccount) {
-        # loop through StrongAuthenticationMethods
-        # if the method should be default, set IsDefault to true
-        # if the method should not be default, set IsDefault to false
-        # add each method to the list
-        # Update the MSOLUser account with the new StrongAuthenticationMethodsArray
-
         $newMFAMethodsArray = @()
-
         foreach ($StrongAuthMethod in $msolUserObject.StrongAuthenticationMethods) {
             if ($StrongAuthMethod.MethodType -eq $MFAType) {
                 $StrongAuthMethod.IsDefault = $True
@@ -94,7 +79,7 @@ function Set-MFAMethodDefault {
             }
             $newMFAMethodsArray += $StrongAuthMethod
         }
-
+        
         Set-MsolUser -UserPrincipalName $UserPrincipalName -StrongAuthenticationMethods $newMFAMethodsArray
         
     } else {
