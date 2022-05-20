@@ -17,20 +17,22 @@ function Set-MFAMethodDefault {
         Options are: "PhoneAppNotification", "OneWaySMS", "TwoWayVoiceMobile", "PhoneAppOTP".
         Case sensitive.
 
+        .PARAMETER Credential
+        A PSCredential object for an msol account that has the required permissions to make this change.
+
         .INPUTS
         UserPrincipalName accepts input from pipeline.
 
         .OUTPUTS
-        None
+        Writes a message to Error Output Stream if the target MFA type is not present on the target account.
 
         .EXAMPLE
         Set-MFAMethodDefault -UserPrincipalName 'test@contoso.com' -MFAType 'PhoneAppNotification' -Credential (Get-Credential)
 
         .EXAMPLE
-        Connect-MsolService -Credential (Get-Credential)
-        $allUsers = Get-ADUser -Filter 'enabled -eq $true'
-        ForEach ($user in $allUsers) {
-            Set-MFAMethodDefault -UserPrincipalName $user.UserPrincipalName -MFAType 'PhoneAppNotification'
+        $allEnabledUsers = Get-ADUser -Filter 'enabled -eq $true'
+        ForEach ($user in $allEnabledUsers) {
+            Set-MFAMethodDefault -UserPrincipalName $user.UserPrincipalName -MFAType 'PhoneAppNotification' -Credential (Get-Credential)
         }
 
         .LINK
@@ -64,25 +66,30 @@ function Set-MFAMethodDefault {
         $Credential
     )
 
-    Connect-MsolService -Credential $Credential
-    $msolUserObject = Get-MsolUser -UserPrincipalName $UserPrincipalName
+    Begin {
+        Connect-MsolService -Credential $Credential
+    }
 
-    $MFATypeIsSetupOnAccount = $msolUserObject.StrongAuthenticationMethods.MethodType.Contains($MFAType)
+    Process {
+        $msolUserObject = Get-MsolUser -UserPrincipalName $UserPrincipalName
 
-    if ($MFATypeIsSetupOnAccount) {
-        $newMFAMethodsArray = @()
-        foreach ($StrongAuthMethod in $msolUserObject.StrongAuthenticationMethods) {
-            if ($StrongAuthMethod.MethodType -eq $MFAType) {
-                $StrongAuthMethod.IsDefault = $True
-            } else {
-                $StrongAuthMethod.IsDefault = $False
+        $MFATypeIsSetupOnAccount = $msolUserObject.StrongAuthenticationMethods.MethodType.Contains($MFAType)
+    
+        if ($MFATypeIsSetupOnAccount) {
+            $newMFAMethodsArray = @()
+            foreach ($StrongAuthMethod in $msolUserObject.StrongAuthenticationMethods) {
+                if ($StrongAuthMethod.MethodType -eq $MFAType) {
+                    $StrongAuthMethod.IsDefault = $True
+                } else {
+                    $StrongAuthMethod.IsDefault = $False
+                }
+                $newMFAMethodsArray += $StrongAuthMethod
             }
-            $newMFAMethodsArray += $StrongAuthMethod
+            
+            Set-MsolUser -UserPrincipalName $UserPrincipalName -StrongAuthenticationMethods $newMFAMethodsArray
+            
+        } else {
+            Write-Error -Message "The MFA Type $MFAType has not been configured on the target account $UserPrincipalName"
         }
-        
-        Set-MsolUser -UserPrincipalName $UserPrincipalName -StrongAuthenticationMethods $newMFAMethodsArray
-        
-    } else {
-        Write-Error -Message "The MFA Type $MFAType has not been configured on the target account $UserPrincipalName"
     }
 }
