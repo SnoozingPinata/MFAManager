@@ -6,7 +6,7 @@ function Set-MFAMethodDefault {
         .DESCRIPTION
         Connects to MS Online, gets the MFA methods on the target account, and changes the default method if the target method is already configured.
         Requires MSOnline module. 
-        Information for installing can be found here: 
+        Information for installing the MSOnline module can be found here: 
         https://docs.microsoft.com/en-us/powershell/azure/active-directory/install-msonlinev1?view=azureadps-1.0
 
         .PARAMETER UserPrincipalName
@@ -31,9 +31,8 @@ function Set-MFAMethodDefault {
 
         .EXAMPLE
         $allEnabledUsers = Get-ADUser -Filter 'enabled -eq $true'
-        ForEach ($user in $allEnabledUsers) {
-            Set-MFAMethodDefault -UserPrincipalName $user.UserPrincipalName -MFAType 'PhoneAppNotification' -Credential (Get-Credential)
-        }
+        $credential = Get-Credential
+        $allEnabledUsers.UserPrincipalName | Set-MFAMethodDefault -MFAType 'PhoneAppNotification' -Credential $credential
 
         .LINK
         Github source: https://github.com/SnoozingPinata/MFAManager
